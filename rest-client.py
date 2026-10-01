@@ -2,13 +2,14 @@
 
 from __future__ import print_function
 
-import requests
-import json
-import time
-import base64
-import jsonpickle
-import random
 import argparse
+import base64
+import json
+import random
+import time
+
+import jsonpickle
+import requests
 
 
 def doRawImage(addr, debug=False):
@@ -41,11 +42,27 @@ def doAdd(addr, debug=False):
 
 
 def doDotProduct(addr, debug=False):
-    pass
+    headers = {'content-type': 'application/json'}
+
+    # send http request with image and receive response
+    add_url = addr + "/api/dotproduct/[1, 2]/[3, 4]"
+    response = requests.post(add_url, headers=headers)
+
+    if debug:
+        print("Response is", response)
+        print(json.loads(response.text))
 
 
 def doJsonImage(addr, debug=False):
-    pass
+    headers = {'content-type': 'application/json'}
+
+    # send http request with image and receive response
+    add_url = addr + "/api/jsonimage"
+    response = requests.post(add_url, headers=headers)
+
+    if debug:
+        print("Response is", response)
+        print(json.loads(response.text))
 
 
 # ---------------------------------------------------------
@@ -144,4 +161,3 @@ elif args.cmd == 'dotProduct':
 
     delta = ((time.perf_counter() - start) / args.reps) * 1000
     print("Took", delta, "ms per operation")
-
