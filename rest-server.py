@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
-from flask import Flask, request, Response
-import jsonpickle
-from PIL import Image
-import io
 import argparse
+import base64
+import io
+
+import jsonpickle
+import numpy as np
+from flask import Flask, Response, request
+from PIL import Image
 
 # Initialize the Flask application
 app = Flask(__name__)
 
 import logging
+
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.DEBUG)
 
@@ -49,14 +53,33 @@ def rawimage():
     )
 
 
-@app.route('/api/dotproduct', methods=['POST'])
-def dotproduct():
-    pass
-
+@app.route('/api/dotproduct/<list[int]:a>/<list[int]:b>', methods=['POST'])
+def dotproduct(a:list[int], b:list[int]):
+    a_numpy,b_numpy = np.array(a),np.array(b)
+    response = {'dot product': str(a_numpy @ b_numpy)}
+    response_pickled = jsonpickle.encode(response)
+    return Response(
+        response=response_pickled,
+        status=200,
+        mimetype="application/json"
+    )
 
 @app.route('/api/jsonimage', methods=['POST'])
 def jsonimage():
-    pass
+    r = request
+
+    ioBuffer = base64.b64encode(r.data)
+
+    response = {
+        "image": ioBuffer
+    }
+
+    response_pickled = jsonpickle.encode(response)
+    return Response(
+        response=response_pickled,
+        status=200,
+        mimetype="application/json"
+    )
 
 
 if __name__ == '__main__':
