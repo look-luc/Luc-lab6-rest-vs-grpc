@@ -3,10 +3,9 @@
 import warnings
 
 import grpc
+import grpcService_pb2 as grpcService__pb2
 
-import grpc_pb2 as grpc__pb2
-
-GRPC_GENERATED_VERSION = '1.84.0'
+GRPC_GENERATED_VERSION = '1.70.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,15 +17,12 @@ except ImportError:
 
 if _version_not_supported:
     raise RuntimeError(
-        f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in grpc_pb2_grpc.py depends on'
-        + f' grpcio>={GRPC_GENERATED_VERSION}.'
-        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
-        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
+        f'The grpc package installed is at version {GRPC_VERSION}, '
+        f'but the generated code is at version {GRPC_GENERATED_VERSION}.'
     )
 
 
-class grpcServiceStub:
+class grpcServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -37,26 +33,27 @@ class grpcServiceStub:
         """
         self.Add = channel.unary_unary(
                 '/grpcService/Add',
-                request_serializer=grpc__pb2.addMsg.SerializeToString,
-                response_deserializer=grpc__pb2.addReply.FromString,
+                request_serializer=grpcService__pb2.addMsg.SerializeToString,
+                response_deserializer=grpcService__pb2.addReply.FromString,
                 _registered_method=True)
         self.DotProduct = channel.unary_unary(
                 '/grpcService/DotProduct',
-                request_serializer=grpc__pb2.dotProductMsg.SerializeToString,
-                response_deserializer=grpc__pb2.dotProductReply.FromString,
+                request_serializer=grpcService__pb2.dotProductMsg.SerializeToString,
+                response_deserializer=grpcService__pb2.dotProductReply.FromString,
                 _registered_method=True)
         self.RawImage = channel.unary_unary(
                 '/grpcService/RawImage',
-                request_serializer=grpc__pb2.rawImageMsg.SerializeToString,
-                response_deserializer=grpc__pb2.imageReply.FromString,
+                request_serializer=grpcService__pb2.rawImageMsg.SerializeToString,
+                response_deserializer=grpcService__pb2.imageReply.FromString,
                 _registered_method=True)
         self.JsonImage = channel.unary_unary(
                 '/grpcService/JsonImage',
-                request_serializer=grpc__pb2.jsonImageMsg.SerializeToString,
-                response_deserializer=grpc__pb2.imageReply.FromString,
+                request_serializer=grpcService__pb2.jsonImageMsg.SerializeToString,
+                response_deserializer=grpcService__pb2.imageReply.FromString,
                 _registered_method=True)
 
-class grpcServiceServicer:
+
+class grpcServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Add(self, request, context):
@@ -83,144 +80,30 @@ class grpcServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+
 def add_grpcServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Add': grpc.unary_unary_rpc_method_handler(
                     servicer.Add,
-                    request_deserializer=grpc__pb2.addMsg.FromString,
-                    response_serializer=grpc__pb2.addReply.SerializeToString,
+                    request_deserializer=grpcService__pb2.addMsg.FromString,
+                    response_serializer=grpcService__pb2.addReply.SerializeToString,
             ),
             'DotProduct': grpc.unary_unary_rpc_method_handler(
                     servicer.DotProduct,
-                    request_deserializer=grpc__pb2.dotProductMsg.FromString,
-                    response_serializer=grpc__pb2.dotProductReply.SerializeToString,
+                    request_deserializer=grpcService__pb2.dotProductMsg.FromString,
+                    response_serializer=grpcService__pb2.dotProductReply.SerializeToString,
             ),
             'RawImage': grpc.unary_unary_rpc_method_handler(
                     servicer.RawImage,
-                    request_deserializer=grpc__pb2.rawImageMsg.FromString,
-                    response_serializer=grpc__pb2.imageReply.SerializeToString,
+                    request_deserializer=grpcService__pb2.rawImageMsg.FromString,
+                    response_serializer=grpcService__pb2.imageReply.SerializeToString,
             ),
             'JsonImage': grpc.unary_unary_rpc_method_handler(
                     servicer.JsonImage,
-                    request_deserializer=grpc__pb2.jsonImageMsg.FromString,
-                    response_serializer=grpc__pb2.imageReply.SerializeToString,
+                    request_deserializer=grpcService__pb2.jsonImageMsg.FromString,
+                    response_serializer=grpcService__pb2.imageReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'grpcService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('grpcService', rpc_method_handlers)
-
- # This class is part of an EXPERIMENTAL API.
-class grpcService:
-    """Missing associated documentation comment in .proto file."""
-
-    @staticmethod
-    def Add(request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/grpcService/Add',
-            grpc__pb2.addMsg.SerializeToString,
-            grpc__pb2.addReply.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def DotProduct(request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/grpcService/DotProduct',
-            grpc__pb2.dotProductMsg.SerializeToString,
-            grpc__pb2.dotProductReply.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-@staticmethod
-    def RawImage(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/grpcService/RawImage',
-            grpc__pb2.rawImageMsg.SerializeToString,
-            grpc__pb2.imageReply.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-@staticmethod
-    def JsonImage(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/grpcService/JsonImage',
-            grpc__pb2.jsonImageMsg.SerializeToString,
-            grpc__pb2.imageReply.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
