@@ -32,3 +32,20 @@ _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'grpc_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_ADDMSG']._serialized_start=14
+  _globals['_ADDMSG']._serialized_end=44
+  _globals['_RAWIMAGEMSG']._serialized_start=46
+  _globals['_RAWIMAGEMSG']._serialized_end=72
+  _globals['_DOTPRODUCTMSG']._serialized_start=74
+  _globals['_DOTPRODUCTMSG']._serialized_end=111
+  _globals['_JSONIMAGEMSG']._serialized_start=113
+  _globals['_JSONIMAGEMSG']._serialized_end=140
+  _globals['_ADDREPLY']._serialized_start=142
+  _globals['_ADDREPLY']._serialized_end=165
+  _globals['_DOTPRODUCTREPLY']._serialized_start=167
+  _globals['_DOTPRODUCTREPLY']._serialized_end=204
+  _globals['_IMAGEREPLY']._serialized_start=206
+  _globals['_IMAGEREPLY']._serialized_end=249
+  _globals['_GRPCSERVICE']._serialized_start=252
+  _globals['_GRPCSERVICE']._serialized_end=420
+# @@protoc_insertion_point(module_scope)
