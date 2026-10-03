@@ -3,19 +3,18 @@
 import argparse
 import base64
 import io
+import json
+import logging
 
 import jsonpickle
 import numpy as np
 from flask import Flask, Response, request
 from PIL import Image
 
-# Initialize the Flask application
 app = Flask(__name__)
 
-import logging
-
 log = logging.getLogger('werkzeug')
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.ERROR)
 
 
 @app.route('/api/add/<int:a>/<int:b>', methods=['GET', 'POST'])
@@ -33,7 +32,6 @@ def add(a, b):
 def rawimage():
     r = request
 
-    # Convert the data to a PIL image type so we can extract dimensions
     try:
         ioBuffer = io.BytesIO(r.data)
         img = Image.open(ioBuffer)
@@ -42,7 +40,7 @@ def rawimage():
             'width': img.size[0],
             'height': img.size[1]
         }
-    except:
+    except Exception:
         response = {'width': 0, 'height': 0}
 
     response_pickled = jsonpickle.encode(response)
@@ -52,11 +50,16 @@ def rawimage():
         mimetype="application/json"
     )
 
+@app.route('/api/dotproduct/<a_str>/<b_str>', methods=['POST'])
+def dotproduct(a_str, b_str):
+    try:
+        a = json.loads(a_str)
+        b = json.loads(b_str)
+        a_numpy, b_numpy = np.array(a), np.array(b)
+        response = {'dot product': str(a_numpy @ b_numpy)}
+    except Exception as e:
+        response = {'error': str(e)}
 
-@app.route('/api/dotproduct/<list[int]:a>/<list[int]:b>', methods=['POST'])
-def dotproduct(a:list[int], b:list[int]):
-    a_numpy,b_numpy = np.array(a),np.array(b)
-    response = {'dot product': str(a_numpy @ b_numpy)}
     response_pickled = jsonpickle.encode(response)
     return Response(
         response=response_pickled,
@@ -64,14 +67,14 @@ def dotproduct(a:list[int], b:list[int]):
         mimetype="application/json"
     )
 
+
 @app.route('/api/jsonimage', methods=['POST'])
 def jsonimage():
     r = request
-
     ioBuffer = base64.b64encode(r.data)
 
     response = {
-        "image": ioBuffer
+        "image": ioBuffer.decode('utf-8')
     }
 
     response_pickled = jsonpickle.encode(response)
@@ -83,11 +86,7 @@ def jsonimage():
 
 
 if __name__ == '__main__':
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(
-        description='Flask REST server'
-    )
-
+    parser = argparse.ArgumentParser(description='Flask REST server')
     parser.add_argument(
         '-p', '--port',
         type=int,
@@ -96,6 +95,4 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
-
-    # Start Flask app
     app.run(host='0.0.0.0', port=args.port)
