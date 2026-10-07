@@ -159,7 +159,7 @@ def main():
     print(f"US Client Internal IP: {ip_client_us}")
     print(f"EU Server Internal IP: {ip_server_eu}")
 
-    reps_Same_zone = 50
+    reps_Same_zone = 500
     time_test_1 = run_test_suite(
         "client-us-west1",
         ip_server_us,
