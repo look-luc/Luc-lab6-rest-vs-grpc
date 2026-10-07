@@ -91,6 +91,28 @@ def execute_ssh_command(
     )
 
 
+def setup_remote_environment(vm_name: str, zone: str) -> None:
+    """Installs uv on the remote GCP VM if it is not present."""
+    print(f"Installing uv on '{vm_name}' ({zone})...")
+    install_cmd = "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    execute_ssh_command(vm_name, zone, install_cmd)
+
+
+def sync_files_to_vm(vm_name: str, zone: str, files: list[str]) -> None:
+    """Copies required project files to the remote VM home directory via gcloud SCP."""
+    print(f"Syncing files to '{vm_name}' ({zone})...")
+    scp_cmd = (
+        ["gcloud", "compute", "scp", f"--zone={zone}"]
+        + files
+        + [f"{vm_name}:~/"]
+    )
+    result = subprocess.run(scp_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Failed to SCP files to {vm_name} ({zone}). Stderr: {result.stderr}"
+        )
+
+
 def start_remote_servers(server_vm_name: str, zone: str) -> None:
     """Starts rest-server.py and grpc_server.py in the background on the target VM."""
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
@@ -198,6 +220,26 @@ def main():
     print(f"US Server Internal IP: {ip_server_us}")
     print(f"US Client Internal IP: {ip_client_us}")
     print(f"EU Server Internal IP: {ip_server_eu}")
+
+    required_files = [
+        "rest-server.py",
+        "grpc_server.py",
+        "rest-client.py",
+        "grpc_client.py",
+        "grpc_pb2.py",
+        "grpc_pb2_grpc.py",
+        "Flatirons_Winter_Sunrise_edit_2.jpg",
+    ]
+
+    vms = [
+        ("server-us-west1", ZONE_US),
+        ("client-us-west1", ZONE_US),
+        ("server-europe-west3", ZONE_EU),
+    ]
+
+    for vm_name, zone in vms:
+        setup_remote_environment(vm_name, zone)
+        sync_files_to_vm(vm_name, zone, required_files)
 
     start_remote_servers("server-us-west1", ZONE_US)
     start_remote_servers("server-europe-west3", ZONE_EU)
