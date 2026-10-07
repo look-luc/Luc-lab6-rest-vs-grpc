@@ -199,7 +199,7 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
 
 def main():
     PROJECT_ID = "lab-6-510321"
-    SNAPSHOT_NAME = "part2-instance-0"
+    SNAPSHOT_NAME = "base-snapshot-part-1-lab5"
     MACHINE_TYPE = "e2-standard-2"
 
     ZONE_US = "us-west1-a"
