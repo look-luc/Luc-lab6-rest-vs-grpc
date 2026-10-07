@@ -58,28 +58,44 @@ def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
     return instance.network_interfaces[0].network_i_p
 
 
-def execute_ssh_command(vm_name: str, zone: str, command: str) -> str:
-    """Executes a shell command on a remote GCP Compute Engine instance via gcloud SSH."""
+def execute_ssh_command(
+    vm_name: str, zone: str, command: str, max_retries: int = 12, delay: int = 5
+) -> str:
+    """Executes a shell command on a remote GCP VM via gcloud SSH with retry logic."""
     ssh_cmd = [
         "gcloud",
         "compute",
         "ssh",
         vm_name,
         f"--zone={zone}",
+        "--ssh-flag=-o StrictHostKeyChecking=no",
+        "--ssh-flag=-o ConnectTimeout=5",
         f"--command={command}",
     ]
-    result = subprocess.run(
-        ssh_cmd, capture_output=True, text=True, check=True
+
+    for attempt in range(1, max_retries + 1):
+        result = subprocess.run(ssh_cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        print(
+            f"[{attempt}/{max_retries}] Waiting for SSH on {vm_name} ({zone})... Retrying in {delay}s"
+        )
+        time.sleep(delay)
+
+    raise RuntimeError(
+        f"Failed to execute SSH command on {vm_name} after {max_retries} attempts.\n"
+        f"Stderr: {result.stderr}"
     )
-    return result.stdout.strip()
 
 
 def start_remote_servers(server_vm_name: str, zone: str) -> None:
     """Starts rest-server.py and grpc_server.py in the background on the target VM."""
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
+    # Redirect stdin (< /dev/null) so SSH detaches immediately from backgrounded tasks
     cmd = (
-        "nohup uv run rest-server.py > rest_server.log 2>&1 & "
-        "nohup uv run grpc_server.py > grpc_server.log 2>&1 &"
+        "nohup uv run rest-server.py > rest_server.log 2>&1 < /dev/null & "
+        "nohup uv run grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
     )
     execute_ssh_command(server_vm_name, zone, cmd)
     time.sleep(3)
