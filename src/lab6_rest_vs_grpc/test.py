@@ -19,7 +19,7 @@ def create_vm_sdk(
     if snapshot_name:
         disk_params.source_snapshot = f"projects/{project_id}/global/snapshots/{snapshot_name}"
     else:
-        disk_params.source_image = "projects/debian-cloud/global/images/family/debian-11"
+        disk_params.source_image = "projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts"
 
     boot_disk = compute_v1.AttachedDisk(
         boot=True,
