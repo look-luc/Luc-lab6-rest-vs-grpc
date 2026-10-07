@@ -5,7 +5,10 @@ from pathlib import Path
 from google.api_core.exceptions import Forbidden
 from google.cloud import compute_v1
 
-ENV_SETUP = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
+ENV_SETUP = (
+    "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
+    "source $HOME/.venv/bin/activate 2>/dev/null || true; "
+)
 BASE_DIR = Path(__file__).parent.parent.parent.resolve()
 
 
@@ -157,8 +160,8 @@ def start_remote_servers(server_vm_name: str, zone: str) -> None:
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
     cmd = (
         f"{ENV_SETUP}"
-        "nohup python3 rest-server.py > rest_server.log 2>&1 < /dev/null & "
-        "nohup python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
+        "nohup uv run python3 rest-server.py > rest_server.log 2>&1 < /dev/null & "
+        "nohup uv run python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
     )
     execute_ssh_command(server_vm_name, zone, cmd)
     time.sleep(3)
@@ -175,9 +178,9 @@ def run_benchmark_remote(
             "jsonimage": "jsonImage",
         }
         rest_ep = rest_endpoint_map.get(endpoint.lower(), endpoint)
-        cmd = f"{ENV_SETUP} python3 rest-client.py {target_ip} {rest_ep} {reps}"
+        cmd = f"{ENV_SETUP} uv run python3 rest-client.py {target_ip} {rest_ep} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"{ENV_SETUP} python3 grpc_client.py {target_ip} {endpoint} {reps}"
+        cmd = f"{ENV_SETUP} uv run python3 grpc_client.py {target_ip} {endpoint} {reps}"
     else:
         raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
