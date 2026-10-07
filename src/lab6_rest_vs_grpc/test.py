@@ -193,6 +193,21 @@ def run_test_suite(
     print(f"{test_name} completed in {elapsed_time:.2f} seconds\n")
     return elapsed_time
 
+def sync_code_to_client(client_vm_name: str, zone: str) -> None:
+    """Copies the local repository directory to the remote client VM."""
+    print(f"Syncing code repository to '{client_vm_name}'...")
+    scp_cmd = [
+        "gcloud",
+        "compute",
+        "scp",
+        "--recurse",
+        "--zone=" + zone,
+        "--tunnel-through-iap",
+        "--ssh-flag=-o StrictHostKeyChecking=no",
+        ".",  # Local repo root
+        f"{client_vm_name}:~/Luc-lab6-rest-vs-grpc",
+    ]
+    subprocess.run(scp_cmd, check=True)
 
 def main():
     PROJECT_ID = "lab-6-510321"
@@ -238,6 +253,7 @@ uv run python grpc_server.py > /tmp/grpc_server.log 2>&1 &
 
     # Ensure SSH service is accessible on client VM before running tests
     wait_for_ssh("client-us-west1", ZONE_US)
+    sync_code_to_client("client-us-west1", ZONE_US)
 
     ip_server_us = get_internal_ip_sdk(PROJECT_ID, "server-us-west1", ZONE_US)
     ip_client_us = get_internal_ip_sdk(PROJECT_ID, "client-us-west1", ZONE_US)
