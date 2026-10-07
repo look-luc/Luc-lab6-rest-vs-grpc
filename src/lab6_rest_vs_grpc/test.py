@@ -1,5 +1,6 @@
 import subprocess
 import time
+import urllib.request
 
 from google.cloud import compute_v1
 
@@ -8,10 +9,11 @@ def create_vm_sdk(
     project_id: str,
     instance_name: str,
     zone: str,
+    startup_script: str | None = None,
     machine_type: str = "e2-standard-2",
     snapshot_name: str | None = None,
 ) -> None:
-    """Creates a VM instance using the google-cloud-compute SDK."""
+    """Creates a VM instance using the google-cloud-compute SDK with optional startup script."""
     instances_client = compute_v1.InstancesClient()
 
     # Configure boot disk
@@ -29,23 +31,25 @@ def create_vm_sdk(
         boot=True, auto_delete=True, initialize_params=disk_params
     )
 
-    # Configure default network interface with Ephemeral External IP
-    access_config = compute_v1.AccessConfig(
-        type_=compute_v1.AccessConfig.Type.ONE_TO_ONE_NAT.name,
-        name="External NAT",
-    )
+    # Configure default network interface
     network_interface = compute_v1.NetworkInterface(
-        network=f"projects/{project_id}/global/networks/default",
-        access_configs=[access_config],
+        network=f"projects/{project_id}/global/networks/default"
     )
 
-    # Build instance resource
+    # Configure Instance Resource
     instance_resource = compute_v1.Instance(
         name=instance_name,
         machine_type=f"zones/{zone}/machineTypes/{machine_type}",
         disks=[boot_disk],
         network_interfaces=[network_interface],
     )
+
+    # Attach startup script if provided
+    if startup_script:
+        metadata = compute_v1.Metadata(
+            items=[compute_v1.Items(key="startup-script", value=startup_script)]
+        )
+        instance_resource.metadata = metadata
 
     request = compute_v1.InsertInstanceRequest(
         project=project_id, zone=zone, instance_resource=instance_resource
@@ -58,9 +62,7 @@ def create_vm_sdk(
     operation.result()
 
 
-def get_internal_ip_sdk(
-    project_id: str, instance_name: str, zone: str
-) -> str:
+def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
     """Retrieves the internal IP address of a VM instance using the SDK."""
     instances_client = compute_v1.InstancesClient()
     instance = instances_client.get(
@@ -69,89 +71,43 @@ def get_internal_ip_sdk(
     return instance.network_interfaces[0].network_i_p
 
 
-def wait_for_ssh(
-    vm_name: str, zone: str, max_retries: int = 30, delay: int = 5
+def wait_for_server_health(
+    target_ip: str, port: int = 5000, timeout: int = 60, delay: int = 2
 ) -> None:
-    """Polls the remote instance until sshd on port 22 is ready to accept connections."""
-    print(f"Waiting for SSH service to become available on '{vm_name}'...")
-    check_cmd = [
-        "gcloud",
-        "compute",
-        "ssh",
-        vm_name,
-        f"--zone={zone}",
-        "--quiet",
-        "--tunnel-through-iap",
-        "--ssh-flag=-o StrictHostKeyChecking=no",
-        "--ssh-flag=-o ConnectTimeout=5",
-        "--command=echo SSH Ready",
-    ]
+    """Polls server over HTTP directly without using SSH until it is responsive."""
+    url = f"http://{target_ip}:{port}/"
+    print(f"Waiting for server at {url} to become ready...")
+    start_time = time.time()
 
-    for attempt in range(1, max_retries + 1):
-        result = subprocess.run(check_cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"SSH successfully established with '{vm_name}'.")
-            return
-        time.sleep(delay)
+    while time.time() - start_time < timeout:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if response.status in (200, 404):
+                    print(f"Server at {target_ip}:{port} is reachable and online.")
+                    return
+        except Exception:
+            time.sleep(delay)
 
-    raise RuntimeError(
-        f"Failed to connect to '{vm_name}' via SSH after {max_retries * delay} seconds."
-    )
+    print(f"Warning: Timed out waiting for server at {target_ip}:{port}. Proceeding anyway.")
 
 
-def execute_ssh_command(vm_name: str, zone: str, command: str) -> str:
-    """Executes a shell command on a remote GCP Compute Engine instance via gcloud SSH, streaming stdout line-by-line in real time."""
-    ssh_cmd = [
-        "gcloud",
-        "compute",
-        "ssh",
-        vm_name,
-        f"--zone={zone}",
-        "--quiet",
-        "--tunnel-through-iap",
-        "--ssh-flag=-o StrictHostKeyChecking=no",
-        f"--command={command}",
-    ]
+def run_benchmark_local(target_ip: str, endpoint: str, reps: int, protocol: str) -> float:
+    """Runs the benchmark client script locally against the target IP and returns execution duration."""
+    start_time = time.perf_counter()
 
-    process = subprocess.Popen(
-        ssh_cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-
-    output_lines = []
-    if process.stdout:
-        for line in iter(process.stdout.readline, ""):
-            print(f"  [{vm_name}] {line}", end="", flush=True)
-            output_lines.append(line)
-        process.stdout.close()
-
-    return_code = process.wait()
-    if return_code != 0:
-        raise subprocess.CalledProcessError(return_code, ssh_cmd)
-
-    return "".join(output_lines).strip()
-
-
-def run_benchmark_remote(
-    client_vm_name, target_ip, endpoint, reps, protocol, zone
-):
     if protocol.lower() == "rest":
-        cmd = f"export PATH=$HOME/.local/bin:$PATH; uv run python -u rest-client.py {target_ip} {endpoint} {reps}"
+        cmd = ["uv", "run", "python", "-u", "rest-client.py", target_ip, endpoint, str(reps)]
     elif protocol.lower() == "grpc":
-        cmd = f"export PATH=$HOME/.local/bin:$PATH; uv run python -u grpc-client.py {target_ip} {endpoint} {reps}"
+        cmd = ["uv", "run", "python", "-u", "grpc-client.py", target_ip, endpoint, str(reps)]
     else:
-        raise ValueError(
-            f"Only REST or gRPC allowed, {protocol} not recognized"
-        )
+        raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
-    return execute_ssh_command(client_vm_name, zone, cmd)
+    subprocess.run(cmd, check=True)
+    return time.perf_counter() - start_time
 
 
-def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
-    running = f"starting {test_name}  against IP: {target_ip}"
+def run_test_suite(target_ip: str, test_name: str, num_reps: int) -> float:
+    running = f"starting {test_name} against IP: {target_ip}"
     print("=" * len(running))
     print(f"|{running}|")
     print("=" * len(running))
@@ -159,31 +115,30 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
     endpoints = ["add", "rawimage", "dotproduct", "jsonimage"]
     start_time = time.perf_counter()
 
+    # Ensure backend server is up before starting benchmarks
+    wait_for_server_health(target_ip)
+
     for endpoint in endpoints:
-        print(f"Running REST benchmark for {endpoint} at zone {zone}")
-        run_benchmark_remote(
-            client_vm_name=client_vm_name,
+        print(f"Running REST benchmark for {endpoint}...")
+        run_benchmark_local(
             target_ip=target_ip,
             endpoint=endpoint,
             reps=num_reps,
             protocol="REST",
-            zone=zone,
         )
 
-        print(f"Running gRPC benchmark for {endpoint} at zone {zone}")
-        run_benchmark_remote(
-            client_vm_name=client_vm_name,
+        print(f"Running gRPC benchmark for {endpoint}...")
+        run_benchmark_local(
             target_ip=target_ip,
             endpoint=endpoint,
             reps=num_reps,
             protocol="GRPC",
-            zone=zone,
         )
 
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
 
-    print(f"{test_name} completed in {elapsed_time} seconds\n")
+    print(f"{test_name} completed in {elapsed_time:.2f} seconds\n")
     return elapsed_time
 
 
@@ -195,62 +150,64 @@ def main():
     ZONE_US = "us-west1-a"
     ZONE_EU = "europe-west3-a"
 
+    # Define Server Startup Script
+    server_startup_script = """#!/bin/bash
+export PATH=$HOME/.local/bin:$PATH
+cd /home/lude4390/Luc-lab6-rest-vs-grpc || true
+uv run python server.py > /tmp/server.log 2>&1 &
+"""
+
+    # 1. Provision instances with startup scripts (No client VM required if running orchestrator locally)
     provision_start = time.perf_counter()
     create_vm_sdk(
-        PROJECT_ID, "server-us-west1", ZONE_US, MACHINE_TYPE, SNAPSHOT_NAME
-    )
-    create_vm_sdk(
-        PROJECT_ID, "client-us-west1", ZONE_US, MACHINE_TYPE, SNAPSHOT_NAME
+        PROJECT_ID,
+        "server-us-west1",
+        ZONE_US,
+        startup_script=server_startup_script,
+        machine_type=MACHINE_TYPE,
+        snapshot_name=SNAPSHOT_NAME,
     )
     create_vm_sdk(
         PROJECT_ID,
         "server-europe-west3",
         ZONE_EU,
-        MACHINE_TYPE,
-        SNAPSHOT_NAME,
+        startup_script=server_startup_script,
+        machine_type=MACHINE_TYPE,
+        snapshot_name=SNAPSHOT_NAME,
     )
     provision_end = time.perf_counter()
     provision_time = provision_end - provision_start
 
-    # 2. Wait for SSH server initialization on the client VM
-    wait_for_ssh("client-us-west1", ZONE_US)
-
-    # 3. Retrieve IPs
+    # 2. Retrieve IPs
     ip_server_us = get_internal_ip_sdk(PROJECT_ID, "server-us-west1", ZONE_US)
-    ip_client_us = get_internal_ip_sdk(PROJECT_ID, "client-us-west1", ZONE_US)
-    ip_server_eu = get_internal_ip_sdk(
-        PROJECT_ID, "server-europe-west3", ZONE_EU
-    )
+    ip_server_eu = get_internal_ip_sdk(PROJECT_ID, "server-europe-west3", ZONE_EU)
 
     print("\n--- INSTANCE INTERNAL IP ADDRESSES ---")
     print(f"US Server Internal IP: {ip_server_us}")
-    print(f"US Client Internal IP: {ip_client_us}")
     print(f"EU Server Internal IP: {ip_server_eu}")
 
-    reps_Same_zone = 500
+    # 3. Execute Benchmarks
+    reps_same_zone = 500
     time_test_1 = run_test_suite(
-        "client-us-west1",
         ip_server_us,
         "test 1 (same zone)",
-        reps_Same_zone,
-        "us-west1-a",
+        reps_same_zone,
     )
 
     reps_cross_region = 50
     time_test_2 = run_test_suite(
-        "client-us-west1",
         ip_server_eu,
         "test 2 (cross region)",
         reps_cross_region,
-        "europe-west3-a",
     )
 
     print("==========================================")
     print("total timing summary")
     print("==========================================")
-    print(f"Infrastructure Provisioning Time : {provision_time} s")
-    print(f"Test 1 (Same-Zone) Total Duration : {time_test_1} s")
-    print(f"Test 2 (Cross-Region) Total Duration: {time_test_2} s")
+    print(f"Infrastructure Provisioning Time : {provision_time:.2f} s")
+    print(f"Test 1 (Same-Zone) Total Duration : {time_test_1:.2f} s")
+    print(f"Test 2 (Cross-Region) Total Duration: {time_test_2:.2f} s")
+
 
 if __name__ == "__main__":
     main()
