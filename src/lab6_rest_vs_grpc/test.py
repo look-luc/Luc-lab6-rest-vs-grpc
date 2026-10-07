@@ -15,15 +15,20 @@ def create_vm_sdk(
     zone: str,
     machine_type: str = "e2-standard-2",
     snapshot_name: str | None = None,
+    snapshot_project_id: str | None = None,
     max_retries: int = 5,
 ) -> None:
     instances_client = compute_v1.InstancesClient()
 
     disk_params = compute_v1.AttachedDiskInitializeParams()
     if snapshot_name:
-        disk_params.source_snapshot = (
-            f"projects/lab5-509001/global/snapshots/{snapshot_name}"
-        )
+        if snapshot_name.startswith("projects/"):
+            disk_params.source_snapshot = snapshot_name
+        else:
+            s_project = snapshot_project_id or project_id
+            disk_params.source_snapshot = (
+                f"projects/{s_project}/global/snapshots/{snapshot_name}"
+            )
     else:
         disk_params.source_image = (
             "projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts"
@@ -109,7 +114,9 @@ def execute_ssh_command(
     )
 
 
-def sync_files_to_vm(vm_name: str, zone: str, files: list[Path]) -> None:
+def sync_files_to_vm(
+    vm_name: str, zone: str, files: list[Path], max_retries: int = 12, delay: int = 5
+) -> None:
     print(f"Syncing files to '{vm_name}' ({zone})...")
     file_paths = [str(f) for f in files]
 
@@ -118,15 +125,32 @@ def sync_files_to_vm(vm_name: str, zone: str, files: list[Path]) -> None:
             raise FileNotFoundError(f"Required file does not exist locally: {f}")
 
     scp_cmd = (
-        ["gcloud", "compute", "scp", f"--zone={zone}"]
+        [
+            "gcloud",
+            "compute",
+            "scp",
+            f"--zone={zone}",
+            "--scp-flag=-o StrictHostKeyChecking=no",
+            "--scp-flag=-o ConnectTimeout=5",
+        ]
         + file_paths
         + [f"{vm_name}:~/"]
     )
-    result = subprocess.run(scp_cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Failed to SCP files to {vm_name} ({zone}). Stderr: {result.stderr}"
+
+    for attempt in range(1, max_retries + 1):
+        result = subprocess.run(scp_cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            return
+
+        print(
+            f"[{attempt}/{max_retries}] Waiting for SSH/SCP connection on {vm_name} ({zone})... Retrying in {delay}s"
         )
+        time.sleep(delay)
+
+    raise RuntimeError(
+        f"Failed to SCP files to {vm_name} ({zone}) after {max_retries} attempts.\n"
+        f"Stderr: {result.stderr}"
+    )
 
 
 def start_remote_servers(server_vm_name: str, zone: str) -> None:
@@ -199,6 +223,8 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
 
 def main():
     PROJECT_ID = "lab-6-510321"
+
+    SNAPSHOT_PROJECT_ID = "lab5-509001"
     SNAPSHOT_NAME = "base-snapshot-part-1-lab5"
     MACHINE_TYPE = "e2-standard-2"
 
@@ -208,12 +234,22 @@ def main():
     provision_start = time.perf_counter()
 
     create_vm_sdk(
-        PROJECT_ID, "server-us-west1", ZONE_US, MACHINE_TYPE, SNAPSHOT_NAME
+        PROJECT_ID,
+        "server-us-west1",
+        ZONE_US,
+        MACHINE_TYPE,
+        snapshot_name=SNAPSHOT_NAME,
+        snapshot_project_id=SNAPSHOT_PROJECT_ID,
     )
     time.sleep(10)
 
     create_vm_sdk(
-        PROJECT_ID, "client-us-west1", ZONE_US, MACHINE_TYPE, SNAPSHOT_NAME
+        PROJECT_ID,
+        "client-us-west1",
+        ZONE_US,
+        MACHINE_TYPE,
+        snapshot_name=SNAPSHOT_NAME,
+        snapshot_project_id=SNAPSHOT_PROJECT_ID,
     )
     time.sleep(10)
 
@@ -222,7 +258,8 @@ def main():
         "server-europe-west3",
         ZONE_EU,
         MACHINE_TYPE,
-        SNAPSHOT_NAME,
+        snapshot_name=SNAPSHOT_NAME,
+        snapshot_project_id=SNAPSHOT_PROJECT_ID,
     )
 
     provision_end = time.perf_counter()
