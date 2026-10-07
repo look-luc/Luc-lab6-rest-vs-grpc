@@ -5,7 +5,7 @@ from pathlib import Path
 from google.cloud import compute_v1
 
 ENV_SETUP = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
-BASE_DIR = Path(__file__).parent.parent.parent.resolve()
+BASE_DIR = Path(__file__).parent.resolve()
 
 
 def create_vm_sdk(
@@ -113,9 +113,6 @@ def sync_files_to_vm(vm_name: str, zone: str, files: list[Path]) -> None:
         raise RuntimeError(
             f"Failed to SCP files to {vm_name} ({zone}). Stderr: {result.stderr}"
         )
-
-    compile_cmd = f"{ENV_SETUP} python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. grpcService.proto"
-    execute_ssh_command(vm_name, zone, compile_cmd)
 
 
 def start_remote_servers(server_vm_name: str, zone: str) -> None:
@@ -228,7 +225,8 @@ def main():
     print(f"EU Server Internal IP: {ip_server_eu}")
 
     required_files = [
-        BASE_DIR / "grpcService.proto",
+        BASE_DIR / "grpc_pb2.py",
+        BASE_DIR / "grpc_pb2_grpc.py",
         BASE_DIR / "rest-server.py",
         BASE_DIR / "grpc_server.py",
         BASE_DIR / "rest-client.py",
