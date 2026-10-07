@@ -22,7 +22,7 @@ def create_vm_sdk(
     disk_params = compute_v1.AttachedDiskInitializeParams()
     if snapshot_name:
         disk_params.source_snapshot = (
-            f"projects/{project_id}/global/snapshots/{snapshot_name}"
+            f"projects/lab5-509001/global/snapshots/{snapshot_name}"
         )
     else:
         disk_params.source_image = (
