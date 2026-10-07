@@ -101,9 +101,9 @@ def run_benchmark_remote(
     zone
 ):
     if protocol.lower() == "rest":
-        cmd = f"uv run -u rest-client.py {target_ip} {endpoint} {reps}"
+        cmd = f"export PATH=$HOME/.local/bin:$PATH; uv run python -u rest-client.py {target_ip} {endpoint} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"uv run -u grpc-client.py {target_ip} {endpoint} {reps}"
+        cmd = f"export PATH=$HOME/.local/bin:$PATH; uv run python -u grpc-client.py {target_ip} {endpoint} {reps}"
     else:
         raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
