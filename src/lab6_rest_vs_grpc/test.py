@@ -66,6 +66,8 @@ def execute_ssh_command(vm_name: str, zone: str, command: str) -> str:
         "ssh",
         vm_name,
         f"--zone={zone}",
+        "--quiet",  # Suppresses interactive prompts and setup warnings
+        "--ssh-flag=-o StrictHostKeyChecking=no",  # Skips key verification prompts
         f"--command={command}",
     ]
 
