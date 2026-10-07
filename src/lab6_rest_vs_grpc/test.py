@@ -5,7 +5,7 @@ from pathlib import Path
 from google.cloud import compute_v1
 
 ENV_SETUP = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
-BASE_DIR = Path(__file__).parent.resolve()
+BASE_DIR = Path(__file__).parent.parent.parent.resolve()
 
 
 def create_vm_sdk(
