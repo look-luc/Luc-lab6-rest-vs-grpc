@@ -98,17 +98,6 @@ def execute_ssh_command(
     )
 
 
-def setup_remote_environment(vm_name: str, zone: str) -> None:
-    """Installs uv and Python dependencies on the remote GCP VM."""
-    print(f"Installing uv and dependencies on '{vm_name}' ({zone})...")
-    install_cmd = (
-        "set -o pipefail; "
-        "curl -LsSf https://astral.sh/uv/install.sh | sh && "
-        f"{ENV_SETUP}uv pip install --system flask jsonpickle numpy pillow grpcio grpcio-tools requests"
-    )
-    execute_ssh_command(vm_name, zone, install_cmd)
-
-
 def sync_files_to_vm(vm_name: str, zone: str, files: list[str]) -> None:
     """Copies required project files to the remote VM home directory via gcloud SCP."""
     print(f"Syncing files to '{vm_name}' ({zone})...")
@@ -129,17 +118,21 @@ def start_remote_servers(server_vm_name: str, zone: str) -> None:
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
     cmd = (
         f"{ENV_SETUP}"
-        "nohup uv run rest-server.py > rest_server.log 2>&1 < /dev/null & "
-        "nohup uv run grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
+        "nohup python3 rest-server.py > rest_server.log 2>&1 < /dev/null & "
+        "nohup python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
     )
     execute_ssh_command(server_vm_name, zone, cmd)
     time.sleep(3)
 
 
 def run_benchmark_remote(
-    client_vm_name, target_ip, endpoint, reps, protocol, zone
+    client_vm_name,
+    target_ip,
+    endpoint,
+    reps,
+    protocol,
+    zone
 ):
-    cmd = ""
     if protocol.lower() == "rest":
         rest_endpoint_map = {
             "add": "add",
@@ -148,13 +141,11 @@ def run_benchmark_remote(
             "jsonimage": "jsonImage",
         }
         rest_ep = rest_endpoint_map.get(endpoint.lower(), endpoint)
-        cmd = f"{ENV_SETUP}uv run rest-client.py {target_ip} {rest_ep} {reps}"
+        cmd = f"python3 rest-client.py {target_ip} {rest_ep} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"{ENV_SETUP}uv run grpc_client.py {target_ip} {endpoint} {reps}"
+        cmd = f"python3 grpc_client.py {target_ip} {endpoint} {reps}"
     else:
-        raise ValueError(
-            f"Only REST or gRPC allowed, {protocol} not recognized"
-        )
+        raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
     return execute_ssh_command(client_vm_name, zone, cmd)
 
@@ -198,7 +189,7 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
 
 def main():
     PROJECT_ID = "lab-6-510321"
-    SNAPSHOT_NAME = None
+    SNAPSHOT_NAME = "lab6-base-snapshot"
     MACHINE_TYPE = "e2-standard-2"
 
     ZONE_US = "us-west1-a"
@@ -249,7 +240,6 @@ def main():
     ]
 
     for vm_name, zone in vms:
-        setup_remote_environment(vm_name, zone)
         sync_files_to_vm(vm_name, zone, required_files)
 
     start_remote_servers("server-us-west1", ZONE_US)
@@ -270,7 +260,7 @@ def main():
         ip_server_eu,
         "test 2 (cross region)",
         reps_cross_region,
-        "europe-west3-a",
+        ZONE_US,
     )
 
     print("==========================================")

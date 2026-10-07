@@ -15,8 +15,8 @@ You should measure the basic latency  using the `ping` command - this can be con
 
 You should examine your results and provide a short paragraph with your observations of the performance difference between REST and gRPC. You should explicitly comment on the role that network latency plays -- it's useful to know that REST makes a new TCP connection for each query while gRPC makes a single TCP connection that is used for all the queries.
 
-Here is a screenshot of creating the VM: 
+<!--Here is a screenshot of creating the VM: 
 
 <img src="IPs.png" alt="VM IPs" style="width:800px;">
 
-This is the screenshot of the internal IP of the VMs
+This is the screenshot of the internal IP of the VMs-->
