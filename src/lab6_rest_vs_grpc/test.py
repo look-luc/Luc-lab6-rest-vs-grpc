@@ -132,7 +132,9 @@ def sync_files_to_vm(
             "gcloud",
             "compute",
             "scp",
+            "--quiet",
             f"--zone={zone}",
+            "--scp-flag=-o BatchMode=yes",
             "--scp-flag=-o StrictHostKeyChecking=no",
             "--scp-flag=-o ConnectTimeout=5",
         ]
