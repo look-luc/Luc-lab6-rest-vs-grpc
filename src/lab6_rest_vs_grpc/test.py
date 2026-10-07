@@ -171,11 +171,11 @@ def start_remote_servers(server_vm_name: str, zone: str) -> None:
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
     cmd = (
         f"{ENV_SETUP}"
-        "nohup python3 rest-server.py > rest_server.log 2>&1 < /dev/null & "
-        "nohup python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
+        "nohup python3 rest-server.py > rest_server.log 2>&1 < /dev/null & disown; "
+        "nohup python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null & disown"
     )
     execute_ssh_command(server_vm_name, zone, cmd)
-    time.sleep(3)
+    time.sleep(10)
 
 
 def run_benchmark_remote(
@@ -308,7 +308,18 @@ def main():
 
     for vm_name, zone in vms:
         sync_files_to_vm(vm_name, zone, required_files)
-        install_remote_dependencies(vm_name, zone, ["jsonpickle"])
+        install_remote_dependencies(
+            vm_name,
+            zone,
+            [
+                "jsonpickle",
+                "flask",
+                "numpy",
+                "Pillow",
+                "grpcio",
+                "grpcio-tools"
+            ]
+        )
 
     for vm_name, zone in vms:
         sync_files_to_vm(vm_name, zone, required_files)
