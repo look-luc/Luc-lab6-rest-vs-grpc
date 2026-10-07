@@ -134,7 +134,7 @@ def run_test_suite(
     return elapsed_time
 
 def main():
-    PROJECT_ID = "your-gcp-project-id"  # Replace with your GCP project ID
+    PROJECT_ID = "lab-6-510321"
     SNAPSHOT_NAME = None                # e.g., "lab5-snapshot" if available
     MACHINE_TYPE = "e2-standard-2"
 
