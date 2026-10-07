@@ -13,7 +13,6 @@ def create_vm_sdk(
     machine_type: str = "e2-standard-2",
     snapshot_name: str | None = None,
 ) -> None:
-    """Creates a VM instance using the google-cloud-compute SDK with external IP enabled."""
     instances_client = compute_v1.InstancesClient()
 
     disk_params = compute_v1.AttachedDiskInitializeParams()
@@ -30,7 +29,6 @@ def create_vm_sdk(
         boot=True, auto_delete=True, initialize_params=disk_params
     )
 
-    # Attach external NAT access config so the VM has outbound internet access
     access_config = compute_v1.AccessConfig(
         name="External NAT",
         type_=compute_v1.AccessConfig.Type.ONE_TO_ONE_NAT.name,
@@ -54,12 +52,10 @@ def create_vm_sdk(
 
     print(f"Creating instance '{instance_name}' in zone '{zone}'...")
     operation = instances_client.insert(request=request)
-
     operation.result()
 
 
 def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
-    """Retrieves the internal IP address of a VM instance using the SDK."""
     instances_client = compute_v1.InstancesClient()
     instance = instances_client.get(
         project=project_id, zone=zone, instance=instance_name
@@ -70,7 +66,6 @@ def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
 def execute_ssh_command(
     vm_name: str, zone: str, command: str, max_retries: int = 12, delay: int = 5
 ) -> str:
-    """Executes a shell command on a remote GCP VM via gcloud SSH with retry logic."""
     ssh_cmd = [
         "gcloud",
         "compute",
@@ -99,7 +94,6 @@ def execute_ssh_command(
 
 
 def sync_files_to_vm(vm_name: str, zone: str, files: list[str]) -> None:
-    """Copies required project files to the remote VM home directory via gcloud SCP."""
     print(f"Syncing files to '{vm_name}' ({zone})...")
     scp_cmd = (
         ["gcloud", "compute", "scp", f"--zone={zone}"]
@@ -112,9 +106,12 @@ def sync_files_to_vm(vm_name: str, zone: str, files: list[str]) -> None:
             f"Failed to SCP files to {vm_name} ({zone}). Stderr: {result.stderr}"
         )
 
+    # Recompile proto files on the VM to ensure bytecode match with local protobuf library
+    compile_cmd = f"{ENV_SETUP} python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. grpcService.proto"
+    execute_ssh_command(vm_name, zone, compile_cmd)
+
 
 def start_remote_servers(server_vm_name: str, zone: str) -> None:
-    """Starts rest-server.py and grpc_server.py in the background on the target VM."""
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
     cmd = (
         f"{ENV_SETUP}"
@@ -141,9 +138,9 @@ def run_benchmark_remote(
             "jsonimage": "jsonImage",
         }
         rest_ep = rest_endpoint_map.get(endpoint.lower(), endpoint)
-        cmd = f"python3 rest-client.py {target_ip} {rest_ep} {reps}"
+        cmd = f"{ENV_SETUP} python3 rest-client.py {target_ip} {rest_ep} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"python3 grpc_client.py {target_ip} {endpoint} {reps}"
+        cmd = f"{ENV_SETUP} python3 grpc_client.py {target_ip} {endpoint} {reps}"
     else:
         raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
@@ -151,7 +148,7 @@ def run_benchmark_remote(
 
 
 def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
-    running = f"starting {test_name}  against IP: {target_ip}"
+    running = f"starting {test_name} against IP: {target_ip}"
     print("=" * len(running))
     print(f"|{running}|")
     print("=" * len(running))
@@ -224,12 +221,11 @@ def main():
     print(f"EU Server Internal IP: {ip_server_eu}")
 
     required_files = [
+        "grpcService.proto",
         "rest-server.py",
         "grpc_server.py",
         "rest-client.py",
         "grpc_client.py",
-        "grpc_pb2.py",
-        "grpc_pb2_grpc.py",
         "Flatirons_Winter_Sunrise_edit_2.jpg",
     ]
 
