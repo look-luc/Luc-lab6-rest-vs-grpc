@@ -3,6 +3,8 @@ import time
 
 from google.cloud import compute_v1
 
+ENV_SETUP = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
+
 
 def create_vm_sdk(
     project_id: str,
@@ -92,8 +94,8 @@ def execute_ssh_command(
 def start_remote_servers(server_vm_name: str, zone: str) -> None:
     """Starts rest-server.py and grpc_server.py in the background on the target VM."""
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
-    # Redirect stdin (< /dev/null) so SSH detaches immediately from backgrounded tasks
     cmd = (
+        f"{ENV_SETUP}"
         "nohup uv run rest-server.py > rest_server.log 2>&1 < /dev/null & "
         "nohup uv run grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
     )
@@ -113,9 +115,9 @@ def run_benchmark_remote(
             "jsonimage": "jsonImage",
         }
         rest_ep = rest_endpoint_map.get(endpoint.lower(), endpoint)
-        cmd = f"uv run rest-client.py {target_ip} {rest_ep} {reps}"
+        cmd = f"{ENV_SETUP}uv run rest-client.py {target_ip} {rest_ep} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"uv run grpc_client.py {target_ip} {endpoint} {reps}"
+        cmd = f"{ENV_SETUP}uv run grpc_client.py {target_ip} {endpoint} {reps}"
     else:
         raise ValueError(
             f"Only REST or gRPC allowed, {protocol} not recognized"
