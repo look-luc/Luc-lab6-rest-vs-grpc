@@ -56,7 +56,7 @@ def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
     """Retrieves the internal IP address of a VM instance using the SDK."""
     instances_client = compute_v1.InstancesClient()
     instance = instances_client.get(project=project_id, zone=zone, instance=instance_name)
-    return instance.network_interfaces[0].network_ip
+    return instance.network_interfaces[0].network_i_p
 
 def execute_ssh_command(vm_name: str, zone: str, command: str) -> str:
     """Executes a shell command on a remote GCP Compute Engine instance via gcloud SSH."""
