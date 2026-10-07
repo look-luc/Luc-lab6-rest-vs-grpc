@@ -30,7 +30,7 @@ echo "Installing packages on remote VM..."
 gcloud compute ssh $VM_NAME --zone=$ZONE --command="
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH=\"\$HOME/.local/bin:\$PATH\"
-    uv pip install --system flask jsonpickle numpy pillow grpcio grpcio-tools requests
+    sudo \$HOME/.local/bin/uv pip install --system flask jsonpickle numpy pillow grpcio grpcio-tools requests
     python3 -c \"import flask, jsonpickle, numpy, PIL, grpc, requests; print('Dependencies OK')\"
 "
 
