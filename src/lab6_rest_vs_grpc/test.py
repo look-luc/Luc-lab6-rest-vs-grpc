@@ -11,6 +11,15 @@ ENV_SETUP = (
 )
 BASE_DIR = Path(__file__).parent.parent.parent.resolve()
 
+def install_remote_dependencies(
+    vm_name: str, zone: str, packages: list[str]
+) -> None:
+    pkg_str = " ".join(packages)
+    print(f"Installing dependencies ({pkg_str}) on '{vm_name}' ({zone})...")
+
+    # Use python3 -m pip to ensure it installs to the active Python environment
+    cmd = f"{ENV_SETUP} python3 -m pip install {pkg_str}"
+    execute_ssh_command(vm_name, zone, cmd)
 
 def create_vm_sdk(
     project_id: str,
@@ -162,8 +171,8 @@ def start_remote_servers(server_vm_name: str, zone: str) -> None:
     print(f"Starting REST and gRPC servers on '{server_vm_name}' ({zone})...")
     cmd = (
         f"{ENV_SETUP}"
-        "nohup uv run python3 rest-server.py > rest_server.log 2>&1 < /dev/null & "
-        "nohup uv run python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
+        "nohup python3 rest-server.py > rest_server.log 2>&1 < /dev/null & "
+        "nohup python3 grpc_server.py > grpc_server.log 2>&1 < /dev/null &"
     )
     execute_ssh_command(server_vm_name, zone, cmd)
     time.sleep(3)
@@ -180,9 +189,9 @@ def run_benchmark_remote(
             "jsonimage": "jsonImage",
         }
         rest_ep = rest_endpoint_map.get(endpoint.lower(), endpoint)
-        cmd = f"{ENV_SETUP} uv run python3 rest-client.py {target_ip} {rest_ep} {reps}"
+        cmd = f"{ENV_SETUP} python3 rest-client.py {target_ip} {rest_ep} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"{ENV_SETUP} uv run python3 grpc_client.py {target_ip} {endpoint} {reps}"
+        cmd = f"{ENV_SETUP} python3 grpc_client.py {target_ip} {endpoint} {reps}"
     else:
         raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
@@ -296,6 +305,10 @@ def main():
         ("client-us-west1", ZONE_US),
         ("server-europe-west3", ZONE_EU),
     ]
+
+    for vm_name, zone in vms:
+        sync_files_to_vm(vm_name, zone, required_files)
+        install_remote_dependencies(vm_name, zone, ["jsonpickle"])
 
     for vm_name, zone in vms:
         sync_files_to_vm(vm_name, zone, required_files)
