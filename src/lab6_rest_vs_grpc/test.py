@@ -291,6 +291,7 @@ def main():
     print(f"EU Server Internal IP: {ip_server_eu}")
 
     required_files = [
+        BASE_DIR / "grpc.proto",
         BASE_DIR / "grpc_pb2.py",
         BASE_DIR / "grpc_pb2_grpc.py",
         BASE_DIR / "rest-server.py",
@@ -317,12 +318,15 @@ def main():
                 "numpy",
                 "Pillow",
                 "grpcio",
-                "grpcio-tools"
+                "grpcio-tools",
+                "protobuf>=5.29.0",  # Ensures compatibility with generated grpc_pb2.py
             ]
         )
 
+    compile_proto_cmd = f"{ENV_SETUP} python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. grpc.proto"
     for vm_name, zone in vms:
         sync_files_to_vm(vm_name, zone, required_files)
+        execute_ssh_command(vm_name, zone, compile_proto_cmd)
 
     start_remote_servers("server-us-west1", ZONE_US)
     start_remote_servers("server-europe-west3", ZONE_EU)
