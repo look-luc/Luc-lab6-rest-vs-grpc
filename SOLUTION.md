@@ -17,4 +17,6 @@ You should examine your results and provide a short paragraph with your observat
 
 Here is a screenshot of creating the VM: 
 
-<img src="VM_made.png" alt="VM made" style="width:800px;">
+<img src="IPs.png" alt="VM IPs" style="width:800px;">
+
+This is the screenshot of the internal IP of the VMs

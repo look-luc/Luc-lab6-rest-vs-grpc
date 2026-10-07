@@ -59,14 +59,36 @@ def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
     return instance.network_interfaces[0].network_i_p
 
 def execute_ssh_command(vm_name: str, zone: str, command: str) -> str:
-    """Executes a shell command on a remote GCP Compute Engine instance via gcloud SSH."""
+    """Executes a shell command on a remote GCP Compute Engine instance via gcloud SSH, streaming stdout line-by-line in real time."""
     ssh_cmd = [
-        "gcloud", "compute", "ssh", vm_name,
+        "gcloud",
+        "compute",
+        "ssh",
+        vm_name,
         f"--zone={zone}",
-        f"--command={command}"
+        f"--command={command}",
     ]
-    result = subprocess.run(ssh_cmd, capture_output=True, text=True, check=True)
-    return result.stdout.strip()
+
+    process = subprocess.Popen(
+        ssh_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    output_lines = []
+    if process.stdout:
+        for line in iter(process.stdout.readline, ""):
+            print(f"  [{vm_name}] {line}", end="", flush=True)
+            output_lines.append(line)
+        process.stdout.close()
+
+    return_code = process.wait()
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, ssh_cmd)
+
+    return "".join(output_lines).strip()
 
 def run_benchmark_remote(
     client_vm_name,
@@ -76,15 +98,14 @@ def run_benchmark_remote(
     protocol,
     zone
 ):
-    cmd= ""
     if protocol.lower() == "rest":
-        cmd = f"python3 rest-client.py {target_ip} {endpoint} {reps}"
+        cmd = f"uv run -u rest-client.py {target_ip} {endpoint} {reps}"
     elif protocol.lower() == "grpc":
-        cmd = f"python3 grpc-client.py {target_ip} {endpoint} {reps}"
+        cmd = f"uv run -u grpc-client.py {target_ip} {endpoint} {reps}"
     else:
         raise ValueError(f"Only REST or gRPC allowed, {protocol} not recognized")
 
-    return execute_ssh_command(client_vm_name,zone,cmd)
+    return execute_ssh_command(client_vm_name, zone, cmd)
 
 def run_test_suite(
     client_vm_name,
@@ -95,7 +116,7 @@ def run_test_suite(
 ):
     running = f"starting {test_name}  against IP: {target_ip}"
     print("="*len(running))
-    print(f"\n|{running}|\n")
+    print(f"|{running}|")
     print("="*len(running))
 
     endpoints = [
@@ -159,7 +180,7 @@ def main():
     print(f"US Client Internal IP: {ip_client_us}")
     print(f"EU Server Internal IP: {ip_server_eu}")
 
-    reps_Same_zone = 50
+    reps_Same_zone = 500
     time_test_1 = run_test_suite(
         "client-us-west1",
         ip_server_us,
