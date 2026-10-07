@@ -2,6 +2,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from google.api_core.exceptions import Forbidden
 from google.cloud import compute_v1
 
 ENV_SETUP = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
@@ -14,6 +15,7 @@ def create_vm_sdk(
     zone: str,
     machine_type: str = "e2-standard-2",
     snapshot_name: str | None = None,
+    max_retries: int = 5,
 ) -> None:
     instances_client = compute_v1.InstancesClient()
 
@@ -52,9 +54,21 @@ def create_vm_sdk(
         project=project_id, zone=zone, instance_resource=instance_resource
     )
 
-    print(f"Creating instance '{instance_name}' in zone '{zone}'...")
-    operation = instances_client.insert(request=request)
-    operation.result()
+    for attempt in range(1, max_retries + 1):
+        print(f"Creating instance '{instance_name}' in zone '{zone}' (attempt {attempt}/{max_retries})...")
+        try:
+            operation = instances_client.insert(request=request)
+            operation.result()
+            return
+        except Forbidden as e:
+            if "RESOURCE_OPERATION_RATE_EXCEEDED" in str(e) and attempt < max_retries:
+                wait_seconds = attempt * 15
+                print(
+                    f"Snapshot operation rate limit exceeded. Retrying in {wait_seconds}s..."
+                )
+                time.sleep(wait_seconds)
+            else:
+                raise
 
 
 def get_internal_ip_sdk(project_id: str, instance_name: str, zone: str) -> str:
@@ -127,12 +141,7 @@ def start_remote_servers(server_vm_name: str, zone: str) -> None:
 
 
 def run_benchmark_remote(
-    client_vm_name,
-    target_ip,
-    endpoint,
-    reps,
-    protocol,
-    zone
+    client_vm_name, target_ip, endpoint, reps, protocol, zone
 ):
     if protocol.lower() == "rest":
         rest_endpoint_map = {
@@ -190,19 +199,24 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
 
 def main():
     PROJECT_ID = "lab-6-510321"
-    SNAPSHOT_NAME = "lab6-base-snapshot"
+    SNAPSHOT_NAME = "part2-instance-0"
     MACHINE_TYPE = "e2-standard-2"
 
     ZONE_US = "us-west1-a"
     ZONE_EU = "europe-west3-a"
 
     provision_start = time.perf_counter()
+
     create_vm_sdk(
         PROJECT_ID, "server-us-west1", ZONE_US, MACHINE_TYPE, SNAPSHOT_NAME
     )
+    time.sleep(10)
+
     create_vm_sdk(
         PROJECT_ID, "client-us-west1", ZONE_US, MACHINE_TYPE, SNAPSHOT_NAME
     )
+    time.sleep(10)
+
     create_vm_sdk(
         PROJECT_ID,
         "server-europe-west3",
@@ -210,6 +224,7 @@ def main():
         MACHINE_TYPE,
         SNAPSHOT_NAME,
     )
+
     provision_end = time.perf_counter()
     provision_time = provision_end - provision_start
 
