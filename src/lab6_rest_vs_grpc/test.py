@@ -1,9 +1,11 @@
 import subprocess
 import time
+from pathlib import Path
 
 from google.cloud import compute_v1
 
 ENV_SETUP = "export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.astral-uv/bin:$PATH; "
+BASE_DIR = Path(__file__).parent.resolve()
 
 
 def create_vm_sdk(
@@ -93,11 +95,17 @@ def execute_ssh_command(
     )
 
 
-def sync_files_to_vm(vm_name: str, zone: str, files: list[str]) -> None:
+def sync_files_to_vm(vm_name: str, zone: str, files: list[Path]) -> None:
     print(f"Syncing files to '{vm_name}' ({zone})...")
+    file_paths = [str(f) for f in files]
+
+    for f in files:
+        if not f.exists():
+            raise FileNotFoundError(f"Required file does not exist locally: {f}")
+
     scp_cmd = (
         ["gcloud", "compute", "scp", f"--zone={zone}"]
-        + files
+        + file_paths
         + [f"{vm_name}:~/"]
     )
     result = subprocess.run(scp_cmd, capture_output=True, text=True)
@@ -106,7 +114,6 @@ def sync_files_to_vm(vm_name: str, zone: str, files: list[str]) -> None:
             f"Failed to SCP files to {vm_name} ({zone}). Stderr: {result.stderr}"
         )
 
-    # Recompile proto files on the VM to ensure bytecode match with local protobuf library
     compile_cmd = f"{ENV_SETUP} python3 -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. grpcService.proto"
     execute_ssh_command(vm_name, zone, compile_cmd)
 
@@ -221,12 +228,12 @@ def main():
     print(f"EU Server Internal IP: {ip_server_eu}")
 
     required_files = [
-        "grpcService.proto",
-        "rest-server.py",
-        "grpc_server.py",
-        "rest-client.py",
-        "grpc_client.py",
-        "Flatirons_Winter_Sunrise_edit_2.jpg",
+        BASE_DIR / "grpcService.proto",
+        BASE_DIR / "rest-server.py",
+        BASE_DIR / "grpc_server.py",
+        BASE_DIR / "rest-client.py",
+        BASE_DIR / "grpc_client.py",
+        BASE_DIR / "Flatirons_Winter_Sunrise_edit_2.jpg",
     ]
 
     vms = [
