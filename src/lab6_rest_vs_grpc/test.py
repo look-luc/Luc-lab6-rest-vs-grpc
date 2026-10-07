@@ -13,7 +13,7 @@ def create_vm_sdk(
     machine_type: str = "e2-standard-2",
     snapshot_name: str | None = None,
 ) -> None:
-    """Creates a VM instance using the google-cloud-compute SDK."""
+    """Creates a VM instance using the google-cloud-compute SDK with external IP enabled."""
     instances_client = compute_v1.InstancesClient()
 
     disk_params = compute_v1.AttachedDiskInitializeParams()
@@ -30,8 +30,15 @@ def create_vm_sdk(
         boot=True, auto_delete=True, initialize_params=disk_params
     )
 
+    # Attach external NAT access config so the VM has outbound internet access
+    access_config = compute_v1.AccessConfig(
+        name="External NAT",
+        type_=compute_v1.AccessConfig.Type.ONE_TO_ONE_NAT.name,
+    )
+
     network_interface = compute_v1.NetworkInterface(
-        network=f"projects/{project_id}/global/networks/default"
+        network=f"projects/{project_id}/global/networks/default",
+        access_configs=[access_config],
     )
 
     instance_resource = compute_v1.Instance(
@@ -92,9 +99,13 @@ def execute_ssh_command(
 
 
 def setup_remote_environment(vm_name: str, zone: str) -> None:
-    """Installs uv on the remote GCP VM if it is not present."""
-    print(f"Installing uv on '{vm_name}' ({zone})...")
-    install_cmd = "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    """Installs uv and Python dependencies on the remote GCP VM."""
+    print(f"Installing uv and dependencies on '{vm_name}' ({zone})...")
+    install_cmd = (
+        "set -o pipefail; "
+        "curl -LsSf https://astral.sh/uv/install.sh | sh && "
+        f"{ENV_SETUP}uv pip install --system flask jsonpickle numpy pillow grpcio grpcio-tools requests"
+    )
     execute_ssh_command(vm_name, zone, install_cmd)
 
 
