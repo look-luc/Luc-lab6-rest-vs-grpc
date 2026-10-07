@@ -17,4 +17,4 @@ You should examine your results and provide a short paragraph with your observat
 
 Here is a screenshot of creating the VM: 
 
-<img src="VM_made.png" alt="VM made" style="width:600px;">
+<img src="VM_made.png" alt="VM made" style="width:800px;">
