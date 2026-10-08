@@ -197,6 +197,29 @@ def run_benchmark_remote(
 
     return execute_ssh_command(client_vm_name, zone, cmd)
 
+def measure_ping_remote(client_vm_name: str, target_ip: str, zone: str) -> str:
+    # Measure average RTT via ping
+    cmd = f"ping -c 10 {target_ip} | tail -1 | awk -F '/' '{{print $5}}'"
+    avg_latency = execute_ssh_command(client_vm_name, zone, cmd)
+    return f"{avg_latency} ms"
+
+
+def run_local_test_suite(client_vm_name: str, zone: str, num_reps: int):
+    # Start local servers on client VM
+    start_remote_servers(client_vm_name, zone)
+
+    # Run benchmark against loopback interface
+    duration = run_test_suite(
+        client_vm_name,
+        "127.0.0.1",
+        "Test 0 (Local Loopback)",
+        num_reps,
+        zone,
+    )
+
+    ping_local = measure_ping_remote(client_vm_name, "127.0.0.1", zone)
+    print(f"Local Ping Latency: {ping_local}")
+    return duration
 
 def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
     running = f"starting {test_name} against IP: {target_ip}"
@@ -205,11 +228,12 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
     print("=" * len(running))
 
     endpoints = ["add", "rawimage", "dotproduct", "jsonimage"]
-    start_time = time.perf_counter()
+    results = {}
 
     for endpoint in endpoints:
-        print(f"Running REST benchmark for {endpoint} at zone {zone}")
-        run_benchmark_remote(
+        # REST Benchmark
+        print(f"\n--- REST {endpoint} ---")
+        rest_output = run_benchmark_remote(
             client_vm_name=client_vm_name,
             target_ip=target_ip,
             endpoint=endpoint,
@@ -217,9 +241,12 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
             protocol="REST",
             zone=zone,
         )
+        print(rest_output)
+        results[f"REST_{endpoint}"] = rest_output
 
-        print(f"Running gRPC benchmark for {endpoint} at zone {zone}")
-        run_benchmark_remote(
+        # gRPC Benchmark
+        print(f"--- gRPC {endpoint} ---")
+        grpc_output = run_benchmark_remote(
             client_vm_name=client_vm_name,
             target_ip=target_ip,
             endpoint=endpoint,
@@ -227,12 +254,10 @@ def run_test_suite(client_vm_name, target_ip, test_name, num_reps, zone):
             protocol="GRPC",
             zone=zone,
         )
+        print(grpc_output)
+        results[f"GRPC_{endpoint}"] = grpc_output
 
-    end_time = time.perf_counter()
-    elapsed_time = end_time - start_time
-
-    print(f"{test_name} completed in {elapsed_time} seconds\n")
-    return elapsed_time
+    return results
 
 
 def main():
@@ -355,6 +380,19 @@ def main():
     print(f"Infrastructure Provisioning Time : {provision_time} s")
     print(f"Test 1 (Same-Zone) Total Duration : {time_test_1} s")
     print(f"Test 2 (Cross-Region) Total Duration: {time_test_2} s")
+
+    time_test_0 = run_local_test_suite("client-us-west1", ZONE_US, 500)
+
+    ping_same_zone = measure_ping_remote("client-us-west1", ip_server_us, ZONE_US)
+    ping_local_region = measure_ping_remote("client-us-west1", ZONE_US, ZONE_US)
+    ping_cross_region = measure_ping_remote("client-us-west1", ip_server_eu, ZONE_US)
+
+    print("==========================================")
+    print(f"Local test: {time_test_0}")
+    print(f"ping same zone: {ping_same_zone}")
+    print(f"ping cross zone: {ping_cross_region}")
+    print(f"local ping: {ping_local_region}")
+    print("==========================================")
 
 
 if __name__ == "__main__":
