@@ -3,13 +3,13 @@
 |---	|---	|---	|---	|---	|
 |   REST add	|   2.72684652199996 ms	|  3.9672635379999974 ms 	|  343.56578162000005 ms	|
 |   gRPC add	|   0.8881 ms	|  1.2029ms 	|  168.6736 ms  	|
-|   REST rawimg	|   	|   9.633725732000016 ms	|   1333.4396801799994 ms	|
-|   gRPC rawimg	|       |   9.6520 ms	|   192.5675 ms	|
-|   REST dotproduct	|   	|  3.938091269999972 ms 	|  330.5936331800001 ms	|
-|   gRPC dotproduct	|   	|   1.2723 ms	|  167.6576 ms  	|
-|   REST jsonimg	|   	|   63.90032850000001 ms	|  3018.21246512 ms 	|
-|   gRPC jsonimg	|       |  26.1729 ms 	|  246.8926 ms 	|
-|   PING        |       |      |       |
+|   REST rawimg	|   5.581726061999916 ms	|   9.633725732000016 ms	|   1333.4396801799994 ms	|
+|   gRPC rawimg	|   7.6662 ms    |   9.6520 ms	|   192.5675 ms	|
+|   REST dotproduct	|   3.2745935000000372 ms	|  3.938091269999972 ms 	|  330.5936331800001 ms	|
+|   gRPC dotproduct	|  1.0036 ms 	|   1.2723 ms	|  167.6576 ms  	|
+|   REST jsonimg	|   57.83057531999998 ms	|   63.90032850000001 ms	|  3018.21246512 ms 	|
+|   gRPC jsonimg	|    23.6583 ms   |  26.1729 ms 	|  246.8926 ms 	|
+|   PING        |   0.044 ms    |   0.441 ms   |     178.367 ms  |
 
 You should measure the basic latency  using the `ping` command - this can be construed to be the latency without any RPC or python overhead.
 
